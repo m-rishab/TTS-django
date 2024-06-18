@@ -1,0 +1,111 @@
+<!-- tts_app/templates/tts_app/index.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TTS Streaming</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+
+        textarea, select, button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Live TTS Streaming</h2>
+        <textarea id="textInput" rows="4" placeholder="Enter text"></textarea>
+        <br/>
+        <label for="languageSelect">Select Language:</label>
+        <select id="languageSelect">
+            <!-- Languages will be populated here by JavaScript -->
+            <option value="en">English</option>
+            <option value="de">German</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="hi">Hindi</option>
+            <option value="it">Italian</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+            <option value="pl">Polish</option>
+            <option value="pt">Portuguese</option>
+            <option value="ru">Russian</option>
+            <option value="tr">Turkish</option>
+            <option value="zh">Chinese</option>
+        </select>
+        <br/>
+        <button id="startButton" onclick="startStreaming()">Start Streaming</button>
+        <button id="stopButton" onclick="stopStreaming()" disabled>Stop Streaming</button>
+        <div id="transcription"></div>
+        <br/>
+        <div>WebSocket: <span id="webSocketStatus">Not Connected</span></div>
+    </div>
+    <script>
+        let socket;
+
+        function startStreaming() {
+            const languageSelect = document.getElementById('languageSelect');
+            const selectedLanguage = languageSelect.value;
+            const textInput = document.getElementById('textInput').value;
+
+            socket = new WebSocket('ws://' + window.location.host + '/ws/tts/');
+
+            socket.onopen = function() {
+                document.getElementById('webSocketStatus').innerText = 'Connected';
+                socket.send(JSON.stringify({ text: textInput, language: selectedLanguage }));
+            };
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.audio) {
+                    const audioData = new Uint8Array(data.audio.split('').map(char => char.charCodeAt(0)));
+                    const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+                } else if (data.error) {
+                    console.error(data.error);
+                }
+            };
+
+            socket.onclose = function(event) {
+                document.getElementById('webSocketStatus').innerText = 'Disconnected';
+                console.error('WebSocket closed:', event.reason);
+            };
+
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('stopButton').disabled = false;
+        }
+
+        function stopStreaming() {
+            if (socket) {
+                socket.close();
+            }
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('stopButton').disabled = true;
+        }
+    </script>
+</body>
+</html>
+
